@@ -83,6 +83,13 @@ app.use('/api/v1/post-tags', postTagsRouter);
 app.use('/api/v1/ai-settings', aiSettingsRouter);
 app.use('/api/v1/admin/notifications', notificationsRouter);
 
+app.get('/', (_req, res) => {
+  res.json({
+    success: true,
+    message: 'API is running 🚀'
+  });
+});
+
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
 
