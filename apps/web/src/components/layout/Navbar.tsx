@@ -52,7 +52,7 @@ function SolutionsDropdown({ scrolled }: { scrolled: boolean }) {
       <div
         role="menu"
         style={{
-          position: "absolute", top: "calc(100% + 12px)", left: "50%", transform: "translateX(-50%)",
+          position: "absolute", top: "calc(100% + 12px)", left: "50%",
           width: 280, background: "#fff", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
           border: "1px solid #e5e7eb", overflow: "hidden", zIndex: 100,
           opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none",

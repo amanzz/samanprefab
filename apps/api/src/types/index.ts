@@ -2,7 +2,7 @@ import type { Request } from 'express';
 import type { User } from '@saman-prefab/db';
 
 export interface AuthenticatedRequest extends Request {
-  user?: Pick<User, 'id' | 'email' | 'role' | 'name'>;
+  user?: Pick<User, 'id' | 'email' | 'role' | 'name' | 'avatar'>;
 }
 
 export interface ApiErrorDetail {

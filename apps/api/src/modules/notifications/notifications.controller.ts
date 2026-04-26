@@ -46,7 +46,7 @@ export async function listNotificationsHandler(
 }
 
 export async function getUnreadCountHandler(
-  req: Request,
+  _req: Request,
   res: Response
 ) {
   try {
@@ -73,7 +73,7 @@ export async function markAsReadHandler(
 }
 
 export async function markAllAsReadHandler(
-  req: Request,
+  _req: Request,
   res: Response
 ) {
   try {

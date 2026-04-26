@@ -34,7 +34,7 @@ export function authMiddleware(
       email: payload.email,
       role: payload.role as 'super_admin' | 'content_editor' | 'sales_agent',
       name: payload.name,
-      avatar: payload.avatar,
+      avatar: payload.avatar ?? null,
     };
     next();
   } catch {

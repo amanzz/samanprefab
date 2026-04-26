@@ -168,7 +168,7 @@ export async function createProduct(input: CreateProductInput) {
 }
 
 export async function updateProduct(id: string, input: UpdateProductInput) {
-  const existing = await getProductById(id);
+  await getProductById(id);
   const [updated] = await db
     .update(products)
     .set({ ...input, updatedAt: new Date() })

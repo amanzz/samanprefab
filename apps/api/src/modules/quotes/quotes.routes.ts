@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import * as controller from './quotes.controller';
 import { validateBody, validateQuery } from '../../middleware/validate.middleware';
-import { authMiddleware, requireRole } from '../../middleware/auth.middleware';
 import {
   submitQuoteSchema,
   updateQuoteStatusSchema,
