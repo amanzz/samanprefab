@@ -29,7 +29,10 @@ export async function createPostTag(input: CreatePostTagInput) {
   const existing = await db.query.postTags.findFirst({ where: eq(postTags.slug, slug) });
   if (existing) throw new AppError(409, 'A tag with this slug already exists', 'SLUG_CONFLICT');
 
-  const [tag] = await db.insert(postTags).values({ ...input, slug }).returning();
+  const [tag] = await db.insert(postTags).values({
+    name: input.name,
+    slug,
+  }).returning();
   return tag;
 }
 
