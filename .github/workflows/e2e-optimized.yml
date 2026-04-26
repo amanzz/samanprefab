@@ -1,0 +1,631 @@
+name: E2E Tests - Optimized
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run full tests nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - full
+          - edge-cases
+          - network
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'local'
+        type: choice
+        options:
+          - local
+          - staging
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PLAYWRIGHT_VERSION: '1.59.1'
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 1: Quick Smoke Tests (2-3 minutes) - Run on every PR
+  # ═══════════════════════════════════════════════════════════════════════════
+  smoke-tests:
+    name: 🔥 Smoke Tests (Fast)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    # Only run smoke tests on PR or manual trigger with smoke option
+    if: |
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'smoke')
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saman_prefab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+          restore-keys: |
+            playwright-${{ env.PLAYWRIGHT_VERSION }}-
+            playwright-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Setup Database
+        working-directory: packages/db
+        run: |
+          npm run db:migrate
+          npm run db:seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saman_prefab_test
+
+      - name: Start API Server
+        working-directory: apps/api
+        run: npm start &
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saman_prefab_test
+          PORT: 4000
+          JWT_SECRET: test-secret-for-ci
+
+      - name: Start Web Server
+        working-directory: apps/web
+        run: npm start &
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until curl -s http://localhost:4000/api/health > /dev/null; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s http://localhost:3000 > /dev/null; do sleep 1; done'
+
+      - name: Run Smoke Tests
+        run: npx playwright test smoke-tests --project=chromium-local
+        env:
+          TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
+          TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+
+      - name: Upload Smoke Test Results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-test-results
+          path: test-results/
+          retention-days: 3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 2: Full Test Suite (15-20 minutes) - Run on merge to main or nightly
+  # ═══════════════════════════════════════════════════════════════════════════
+  full-tests:
+    name: 🧪 Full Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: smoke-tests
+    
+    # Run on main branch merges, nightly schedule, or manual full test trigger
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'full')
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saman_prefab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Setup Database
+        working-directory: packages/db
+        run: |
+          npm run db:migrate
+          npm run db:seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saman_prefab_test
+
+      - name: Start Services
+        run: |
+          (cd apps/api && PORT=4000 npm start &)  
+          (cd apps/web && npm start &)
+          timeout 60 bash -c 'until curl -s http://localhost:4000/api/health > /dev/null; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s http://localhost:3000 > /dev/null; do sleep 1; done'
+
+      - name: Run Full Test Suite
+        run: npx playwright test --project=chromium-local
+        env:
+          TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
+          TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+
+      - name: Upload Full Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-test-results
+          path: |
+            test-results/
+            playwright-report/
+            e2e-results.json
+          retention-days: 14
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 3: Edge Cases & Network Tests - Run on demand or weekly
+  # ═══════════════════════════════════════════════════════════════════════════
+  edge-case-tests:
+    name: 🔍 Edge Cases & Network Resilience
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    
+    # Run manually, on workflow_dispatch with edge-cases option, or weekly schedule
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'edge-cases') ||
+      (github.event_name == 'schedule' && contains(github.event.schedule, '0 3 * * 0'))
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saman_prefab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium
+
+      - name: Build & Start Services
+        run: |
+          npm run build
+          (cd apps/api && PORT=4000 npm start &)  
+          (cd apps/web && npm start &)
+          sleep 15
+
+      - name: Run Edge Case Tests
+        run: |
+          npx playwright test edge-cases
+          npx playwright test auth-edge-cases
+
+      - name: Run Network Resilience Tests
+        run: npx playwright test network-resilience
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: edge-case-results
+          path: test-results/
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 4: Staging Environment Tests
+  # ═══════════════════════════════════════════════════════════════════════════
+  staging-tests:
+    name: 🌍 Staging Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    
+    # Run on main branch, manual staging trigger, or nightly
+    if: |
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging') ||
+      github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium
+
+      - name: Run Staging Tests
+        run: npx playwright test --project=chromium-staging
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+          TEST_ADMIN_EMAIL: ${{ secrets.STAGING_ADMIN_EMAIL }}
+          TEST_ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          RUN_STAGING_TESTS: true
+          SENTRY_DSN_STAGING: ${{ secrets.SENTRY_DSN_STAGING }}
+          ANALYTICS_ID_STAGING: ${{ secrets.ANALYTICS_ID_STAGING }}
+
+      - name: Upload Staging Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-test-results
+          path: test-results/
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 5: Merge Check - Block PR if smoke tests fail
+  # ═══════════════════════════════════════════════════════════════════════════
+  merge-check:
+    name: ✅ Merge Gate
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: always() && github.event_name == 'pull_request'
+    
+    steps:
+      - name: Check Smoke Test Results
+        run: |
+          if [ "${{ needs.smoke-tests.result }}" != "success" ]; then
+            echo "❌ Smoke tests failed - blocking merge"
+            echo "Fix smoke tests before merging"
+            exit 1
+          fi
+          echo "✅ Smoke tests passed - merge allowed"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 6: Test Summary Report
+  # ═══════════════════════════════════════════════════════════════════════════
+  report:
+    name: 📊 Test Summary
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, full-tests]
+    if: always()
+    
+    steps:
+      - name: Generate Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = {
+              smoke: '${{ needs.smoke-tests.result }}',
+              full: '${{ needs.full-tests.result }}'
+            };
+            
+            let summary = '## 🎭 E2E Test Results\n\n';
+            
+            // Smoke tests
+            summary += '### 🔥 Smoke Tests\n';
+            if (jobs.smoke === 'success') {
+              summary += '✅ **PASSED** (Fast - < 3 minutes)\n\n';
+            } else if (jobs.smoke === 'failure') {
+              summary += '❌ **FAILED** - PR merge blocked\n\n';
+            } else if (jobs.smoke === 'skipped') {
+              summary += '⏭️ **SKIPPED**\n\n';
+            }
+            
+            // Full tests
+            if (jobs.full !== 'skipped') {
+              summary += '### 🧪 Full Test Suite\n';
+              if (jobs.full === 'success') {
+                summary += '✅ **PASSED**\n\n';
+              } else if (jobs.full === 'failure') {
+                summary += '❌ **FAILED**\n\n';
+              } else if (jobs.full === 'skipped') {
+                summary += '⏭️ **SKIPPED** (Runs on main branch only)\n\n';
+              }
+            }
+            
+            summary += '**Total Tests:** ~550 test variants\n';
+            summary += '**Artifacts:** [View Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
+            
+            core.summary.addRaw(summary).write();
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 7: Chaos & Resilience Tests (Weekly or Manual)
+  # ═══════════════════════════════════════════════════════════════════════════
+  chaos-tests:
+    name: 🔥 Chaos & Resilience Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    # Run weekly or manually
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'chaos') ||
+      (github.event_name == 'schedule' && contains(github.event.schedule, '0 4 * * 0'))
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saman_prefab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium
+
+      - name: Build & Start Services
+        run: |
+          npm run build
+          (cd apps/api && PORT=4000 npm start &)  
+          (cd apps/web && npm start &)
+          sleep 15
+
+      - name: Run Chaos Tests
+        run: npx playwright test chaos-tests
+        env:
+          TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
+          TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_CHAOS }}
+          SLACK_CHANNEL: '#chaos-test-alerts'
+
+      - name: Run Network Resilience Tests
+        run: npx playwright test network-resilience
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_CHAOS }}
+
+      - name: Upload Chaos Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chaos-test-results
+          path: test-results/
+          retention-days: 7
+
+      - name: Send Slack Alert on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🔥 Chaos Tests Failed!",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Chaos Tests Failed"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Resilience tests detected system weaknesses. Check the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|results>."
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 8: Business Flow Tests (On merge to main or manual)
+  # ═══════════════════════════════════════════════════════════════════════════
+  business-flow-tests:
+    name: 🏢 Business Flow Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'business')
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saman_prefab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium
+
+      - name: Build & Start Services
+        run: |
+          npm run build
+          (cd apps/api && PORT=4000 npm start &)  
+          (cd apps/web && npm start &)
+          sleep 15
+
+      - name: Run Business Flow Tests
+        run: npx playwright test business-flows
+        env:
+          TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
+          TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          ANALYTICS_ID: ${{ secrets.ANALYTICS_ID }}
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-flow-results
+          path: test-results/
+          retention-days: 14
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOB 9: Cost Optimization - Cleanup old artifacts
+  # ═══════════════════════════════════════════════════════════════════════════
+  cleanup:
+    name: 🧹 Cleanup Old Artifacts
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Delete old artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            const oldArtifacts = artifacts.data.artifacts.filter(artifact => {
+              const age = Date.now() - new Date(artifact.created_at).getTime();
+              return age > 7 * 24 * 60 * 60 * 1000; // 7 days
+            });
+            
+            for (const artifact of oldArtifacts.slice(0, 10)) {
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+              });
+              console.log(`Deleted artifact: ${artifact.name}`);
+            }
