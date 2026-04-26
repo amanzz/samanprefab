@@ -32,7 +32,13 @@ export async function createPostCategory(input: CreatePostCategoryInput) {
   const existing = await db.query.postCategories.findFirst({ where: eq(postCategories.slug, slug) });
   if (existing) throw new AppError(409, 'A category with this slug already exists', 'SLUG_CONFLICT');
 
-  const [cat] = await db.insert(postCategories).values({ ...input, slug }).returning();
+  const [cat] = await db.insert(postCategories).values({
+    name: input.name,
+    slug,
+    description: input.description,
+    parentId: input.parentId,
+    sortOrder: input.sortOrder ?? 0,
+  }).returning();
   return cat;
 }
 
