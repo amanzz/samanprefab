@@ -115,7 +115,19 @@ export async function createCitySeoPage(input: CreateCitySeoPageInput) {
   });
   if (existing) throw new AppError(409, 'A page with this slug already exists', 'SLUG_CONFLICT');
 
-  const [page] = await db.insert(citySeoPages).values(input).returning();
+  const [page] = await db.insert(citySeoPages).values({
+    cityId: input.cityId,
+    productCategoryId: input.productCategoryId,
+    slug: input.slug,
+    status: input.status ?? 'draft',
+    metaTitle: input.metaTitle,
+    metaDescription: input.metaDescription,
+    h1Override: input.h1Override,
+    customBlocks: input.customBlocks,
+    aiGeneratedContent: input.aiGeneratedContent,
+    internalLinks: input.internalLinks,
+    priority: input.priority ?? 50,
+  }).returning();
   return page;
 }
 

@@ -68,7 +68,14 @@ export async function createCategory(input: CreateCategoryInput) {
   });
   if (existing) throw new AppError(409, 'A category with this slug already exists', 'SLUG_CONFLICT');
 
-  const [category] = await db.insert(productCategories).values(input).returning();
+  const [category] = await db.insert(productCategories).values({
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+    parentId: input.parentId,
+    imageUrl: input.imageUrl,
+    sortOrder: input.sortOrder ?? 0,
+  }).returning();
   return category;
 }
 

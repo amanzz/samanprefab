@@ -16,17 +16,43 @@ export async function upsertAISetting(
 ) {
   const [row] = await db
     .insert(aiSettings)
-    .values({ context, ...input, updatedAt: new Date() })
+    .values({
+      context,
+      systemPrompt: input.systemPrompt,
+      tone: input.tone,
+      targetKeywords: input.targetKeywords,
+      language: input.language,
+      contentRules: input.contentRules,
+      isActive: input.isActive ?? true,
+      updatedAt: new Date(),
+    })
     .onConflictDoUpdate({
       target: aiSettings.context,
-      set: { ...input, updatedAt: new Date() },
+      set: {
+        systemPrompt: input.systemPrompt,
+        tone: input.tone,
+        targetKeywords: input.targetKeywords,
+        language: input.language,
+        contentRules: input.contentRules,
+        isActive: input.isActive ?? true,
+        updatedAt: new Date(),
+      },
     })
     .returning();
   return row;
 }
 
 export async function createLog(input: CreateLogInput) {
-  const [row] = await db.insert(aiGenerationLog).values(input).returning();
+  const [row] = await db.insert(aiGenerationLog).values({
+    context: input.context,
+    actionType: input.actionType,
+    inputSummary: input.inputSummary,
+    outputPreview: input.outputPreview,
+    durationMs: input.durationMs,
+    tokensUsed: input.tokensUsed,
+    success: input.success ?? true,
+    errorMessage: input.errorMessage,
+  }).returning();
   return row;
 }
 
