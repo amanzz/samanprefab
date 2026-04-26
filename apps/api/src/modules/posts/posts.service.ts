@@ -127,12 +127,29 @@ export async function createPost(input: CreatePostInput) {
   const existing = await db.query.posts.findFirst({ where: eq(posts.slug, slug) });
   if (existing) throw new AppError(409, 'A post with this slug already exists', 'SLUG_CONFLICT');
 
-  const { categoryIds, tagIds, ...postData } = input;
-  const publishedAt = postData.status === 'published' ? new Date() : undefined;
+  const { categoryIds, tagIds } = input;
+  const publishedAt = input.status === 'published' ? new Date() : undefined;
 
   const [post] = await db
     .insert(posts)
-    .values({ ...postData, slug, publishedAt })
+    .values({
+      title: input.title,
+      slug,
+      content: input.content,
+      excerpt: input.excerpt,
+      featuredImage: input.featuredImage,
+      status: input.status,
+      metaTitle: input.metaTitle,
+      metaDescription: input.metaDescription,
+      canonicalUrl: input.canonicalUrl,
+      ogTitle: input.ogTitle,
+      ogDescription: input.ogDescription,
+      ogImage: input.ogImage,
+      twitterTitle: input.twitterTitle,
+      twitterDescription: input.twitterDescription,
+      twitterImage: input.twitterImage,
+      publishedAt,
+    })
     .returning();
 
   await syncRelations(post.id, categoryIds ?? [], tagIds ?? []);
