@@ -140,7 +140,29 @@ export async function createProduct(input: CreateProductInput) {
 
   const [product] = await db
     .insert(products)
-    .values({ ...input, slug })
+    .values({
+      name: input.name,
+      slug,
+      sku: input.sku,
+      categoryId: input.categoryId,
+      shortDescription: input.shortDescription,
+      description: input.description,
+      specifications: input.specifications,
+      features: input.features,
+      applications: input.applications,
+      customButtons: input.customButtons,
+      images: input.images,
+      featuredImage: input.featuredImage,
+      documents: input.documents,
+      priceMin: input.priceMin,
+      priceMax: input.priceMax,
+      priceText: input.priceText,
+      priceUnit: input.priceUnit,
+      metaTitle: input.metaTitle,
+      metaDescription: input.metaDescription,
+      canonicalUrl: input.canonicalUrl,
+      status: input.status,
+    })
     .returning();
 
   // Create notification for new product

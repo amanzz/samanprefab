@@ -62,7 +62,11 @@ export async function createAttributeValue(attributeId: string, input: CreateAtt
   await getAttributeById(attributeId);
   const [val] = await db
     .insert(attributeValues)
-    .values({ ...input, attributeId })
+    .values({
+      attributeId,
+      value: input.value,
+      sortOrder: input.sortOrder ?? 0,
+    })
     .returning();
   return val;
 }

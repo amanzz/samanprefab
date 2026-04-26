@@ -59,7 +59,13 @@ export async function createRedirect(input: CreateRedirectInput, createdBy?: str
   }
   const [redirect] = await db
     .insert(redirects)
-    .values({ ...input, createdBy: createdBy ?? null })
+    .values({
+      fromPath: input.fromPath,
+      toPath: input.toPath,
+      statusCode: input.statusCode ?? 301,
+      isActive: input.isActive ?? true,
+      createdBy: createdBy ?? null,
+    })
     .returning();
   return redirect;
 }

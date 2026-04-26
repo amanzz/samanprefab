@@ -26,7 +26,19 @@ export async function createVariant(productId: string, input: CreateVariantInput
 
   const [variant] = await db
     .insert(productVariants)
-    .values({ ...input, productId })
+    .values({
+      productId,
+      label: input.label,
+      size: input.size,
+      material: input.material,
+      finish: input.finish,
+      priceMin: input.priceMin,
+      priceMax: input.priceMax,
+      unit: input.unit ?? 'unit',
+      isDefault: input.isDefault ?? false,
+      isActive: input.isActive ?? true,
+      sortOrder: input.sortOrder ?? 0,
+    })
     .returning();
   return variant;
 }
