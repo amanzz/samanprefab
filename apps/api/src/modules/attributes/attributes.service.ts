@@ -89,7 +89,14 @@ export async function deleteAttributeValue(id: string) {
 }
 
 export async function createAttribute(input: CreateAttributeInput) {
-  const [attr] = await db.insert(productAttributes).values(input).returning();
+  const [attr] = await db.insert(productAttributes).values({
+    name: input.name,
+    unit: input.unit,
+    type: input.type ?? 'text',
+    options: input.options,
+    isActive: input.isActive ?? true,
+    sortOrder: input.sortOrder ?? 0,
+  }).returning();
   return attr;
 }
 
