@@ -53,3 +53,5 @@ e2e-results.json
 
 # Local playwright cache
 .playwright/
+.vercel
+# Vercel files
