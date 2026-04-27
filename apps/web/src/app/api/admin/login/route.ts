@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { generateAccessToken, generateRefreshToken } from '@saman-prefab/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
@@ -47,38 +46,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Issue Next.js tokens so middleware can guard /admin/* routes
-    const payload = { userId: user.id, role: 'admin' as const };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    const response = NextResponse.json({ success: true });
+    // Backend handles token generation and sets cookies
+    // Forward the response with all cookies from backend
+    const response = NextResponse.json({ success: true, user });
 
     // Prevent caching of login responses
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('Expires', '0');
 
-    response.cookies.set('accessToken', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 900,
-    });
-
-    response.cookies.set('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 604800,
-    });
-
-    // Forward backend 'token' cookie so all /api/v1/* requests authenticate
-    const setCookie = backendRes.headers.get('set-cookie');
-    if (setCookie) {
-      response.headers.append('Set-Cookie', setCookie);
+    // Forward all cookies from backend including tokens
+    const setCookieHeader = backendRes.headers.get('set-cookie');
+    if (setCookieHeader) {
+      // Split multiple cookies and append each
+      const cookies = setCookieHeader.split(', ');
+      cookies.forEach(cookie => {
+        response.headers.append('Set-Cookie', cookie);
+      });
     }
 
     return response;

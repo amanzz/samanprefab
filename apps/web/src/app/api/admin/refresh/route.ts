@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { verifyRefreshToken, generateAccessToken, generateRefreshToken } from '@saman-prefab/utils';
 import { cookies } from 'next/headers';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 export async function POST(request: Request) {
   try {
@@ -14,29 +15,34 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify refresh token
-    const payload = verifyRefreshToken(refreshToken);
+    // Call backend refresh endpoint
+    const backendRes = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `refreshToken=${refreshToken}`,
+      },
+    });
 
-    // Generate new access token and refresh token (rotation)
-    const newAccessToken = generateAccessToken(payload);
-    const newRefreshToken = generateRefreshToken(payload);
+    if (!backendRes.ok) {
+      return NextResponse.json(
+        { error: 'Invalid or expired refresh token' },
+        { status: 401 }
+      );
+    }
 
-    // Set new cookies
+    // Forward the response with all cookies from backend
     const response = NextResponse.json({ success: true });
-    response.cookies.set('accessToken', newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 900,
-    });
-    response.cookies.set('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 604800,
-    });
+
+    // Forward all cookies from backend including new tokens
+    const setCookieHeader = backendRes.headers.get('set-cookie');
+    if (setCookieHeader) {
+      // Split multiple cookies and append each
+      const cookies = setCookieHeader.split(', ');
+      cookies.forEach(cookie => {
+        response.headers.append('Set-Cookie', cookie);
+      });
+    }
 
     return response;
   } catch (error) {
