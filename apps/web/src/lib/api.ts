@@ -1,5 +1,8 @@
 export const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1',
+  baseURL: (() => {
+    const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    return url.endsWith('/api/v1') ? url.replace(/\/$/, '') : `${url}/api/v1`;
+  })(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

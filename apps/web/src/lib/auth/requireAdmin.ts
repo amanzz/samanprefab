@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+const API_URL = (() => {
+  const url = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  return url.endsWith('/api/v1') ? url.replace(/\/$/, '') : `${url}/api/v1`;
+})();
 
 export async function requireAdmin() {
   const cookieStore = await cookies();

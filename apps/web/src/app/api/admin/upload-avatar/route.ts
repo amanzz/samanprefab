@@ -4,7 +4,10 @@ import { join } from 'path';
 import { cookies } from 'next/headers';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+const API_URL = (() => {
+  const url = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  return url.endsWith('/api/v1') ? url.replace(/\/$/, '') : `${url}/api/v1`;
+})();
 
 export async function POST(request: Request) {
   let payload;

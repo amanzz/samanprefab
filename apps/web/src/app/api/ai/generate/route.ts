@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAIByType, type AISetting } from "@/lib/ai.service";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+const API_URL = (() => {
+  const url = process.env.API_URL ?? "http://localhost:4000";
+  return url.endsWith('/api/v1') ? url.replace(/\/$/, '') : `${url}/api/v1`;
+})();
 
 // ─── Fetch admin AI settings (server-side) ─────────────────────────────────────
 
 async function fetchAdminSettings(context: "product" | "blog" | "global"): Promise<AISetting | null> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/ai-settings/${context}`, {
+    const res = await fetch(`${API_URL}/ai-settings/${context}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(3000),
     });
@@ -42,7 +45,7 @@ async function logGeneration(payload: {
   errorMessage?: string;
 }) {
   try {
-    await fetch(`${API_URL}/api/v1/ai-settings/log`, {
+    await fetch(`${API_URL}/ai-settings/log`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

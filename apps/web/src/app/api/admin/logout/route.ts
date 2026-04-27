@@ -11,7 +11,10 @@ export async function POST() {
 
     // Also notify the backend to invalidate its session (best-effort)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+      const apiUrl = (() => {
+        const url = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+        return url.endsWith('/api/v1') ? url.replace(/\/$/, '') : `${url}/api/v1`;
+      })();
       await fetch(`${apiUrl}/auth/logout`, { method: 'POST' });
     } catch {
       // Ignore — cookie deletion above is sufficient

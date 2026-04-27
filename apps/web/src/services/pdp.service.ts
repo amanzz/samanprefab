@@ -2,7 +2,10 @@ import 'server-only';
 
 import type { PdpProduct, PublicListResponse, PublicSettingsMap } from '@/types/pdp-product.types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_BASE = (() => {
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  return url.endsWith('/api/v1') ? url.replace(/\/$/, '') : `${url}/api/v1`;
+})();
 const DEFAULT_REVALIDATE = 300;
 
 type ApiEnvelope<T> = {
