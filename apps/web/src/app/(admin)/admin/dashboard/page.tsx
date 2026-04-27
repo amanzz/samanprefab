@@ -9,7 +9,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ApexOptions } from "apexcharts";
 
-// @ts-expect-error react-apexcharts types incompatible with React 19
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export default function DashboardPage() {

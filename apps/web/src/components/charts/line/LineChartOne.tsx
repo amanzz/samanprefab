@@ -5,7 +5,6 @@ import { ApexOptions } from "apexcharts";
 
 import dynamic from "next/dynamic";
 // Dynamically import the ReactApexChart component
-// @ts-expect-error react-apexcharts types incompatible with React 19
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });

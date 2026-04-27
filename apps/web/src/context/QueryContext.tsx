@@ -5,7 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState } from 'react';
 
 interface QueryContextProps {
-  children: JSX.Element | JSX.Element[];
+  children: React.ReactNode;
 }
 
 export default function QueryContext({ children }: QueryContextProps) {

@@ -6,7 +6,6 @@ import flatpickr from "flatpickr";
 import ChartTab from "../common/ChartTab";
 import { CalenderIcon } from "../../icons";
 
-// @ts-expect-error react-apexcharts types incompatible with React 19
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export default function StatisticsChart() {
