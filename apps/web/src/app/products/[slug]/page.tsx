@@ -162,7 +162,7 @@ export default async function ProductDetailPage({ params }: Props) {
           1. HERO
       ════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50 dark:bg-gray-900 pt-8 md:pt-12 pb-16 border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-screen-2xl mx-auto px-6">
 
           {/* ── Pill breadcrumb ─────────────────────────────────────────── */}
           <nav aria-label="breadcrumb" className="flex items-center gap-2 mb-10 flex-wrap">
@@ -401,7 +401,7 @@ export default async function ProductDetailPage({ params }: Props) {
       ════════════════════════════════════════════════════════ */}
       {relatedProducts.length > 0 && (
         <section className="py-24 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
-          <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-screen-2xl mx-auto px-6">
             <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-12">
               Related Solutions
             </h2>

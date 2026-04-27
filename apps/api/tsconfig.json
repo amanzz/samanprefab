@@ -5,13 +5,8 @@
     "rootDir": "src",
     "strict": false,
     "noImplicitAny": false,
-    "skipLibCheck": true,
-    "composite": true
+    "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../../packages/db" },
-    { "path": "../../packages/utils" }
-  ]
+  "exclude": ["node_modules", "dist"]
 }

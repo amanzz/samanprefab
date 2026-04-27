@@ -191,7 +191,7 @@ export default function ProductTabs({ product }: ProductTabsProps) {
 
   return (
     <section className="bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
-      <div className="max-w-6xl mx-auto px-6">
+      <div className="max-w-screen-2xl mx-auto px-6">
 
         {/* ══════════════════════════════════════════════════════
             DESKTOP: Pill Tab Navigation (md+)
