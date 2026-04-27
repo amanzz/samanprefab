@@ -33,10 +33,14 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+    origin: [
+      'http://localhost:3000',
+      'https://samanprefab-web.vercel.app'
+    ],
     credentials: true,
   })
 );
+app.options('*', cors());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
