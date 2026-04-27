@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateAccessToken, generateRefreshToken } from '../../../../../../../lib/auth/jwt';
+import { generateAccessToken, generateRefreshToken } from '@saman-prefab/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
@@ -53,6 +53,11 @@ export async function POST(request: Request) {
     const refreshToken = generateRefreshToken(payload);
 
     const response = NextResponse.json({ success: true });
+
+    // Prevent caching of login responses
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
 
     response.cookies.set('accessToken', accessToken, {
       httpOnly: true,

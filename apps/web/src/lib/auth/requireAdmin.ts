@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { verifyAccessToken } from '../../../../../lib/auth/jwt';
+import { verifyAccessToken } from '@saman-prefab/utils';
 
 export async function requireAdmin() {
   const cookieStore = await cookies();

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyRefreshToken, generateAccessToken, generateRefreshToken } from '../../../../../../../lib/auth/jwt';
+import { verifyRefreshToken, generateAccessToken, generateRefreshToken } from '@saman-prefab/utils';
 import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
