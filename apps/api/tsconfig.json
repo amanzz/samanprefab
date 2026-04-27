@@ -5,7 +5,8 @@
     "rootDir": "src",
     "strict": false,
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node", "express"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
