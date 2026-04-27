@@ -14,6 +14,14 @@ export async function customFetch<T>(
     ...(options.headers as Record<string, string>),
   };
 
+  // Add Authorization header if token exists in localStorage
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
   if (options.body instanceof FormData) {
     delete headers['Content-Type'];
   }

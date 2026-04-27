@@ -29,9 +29,10 @@ export default function AdminLogin() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        router.replace('/admin');
+        localStorage.setItem('token', data.data.token);
+        window.location.href = '/admin/dashboard';
       } else {
-        setError(data.error || `Login failed (${response.status})`);
+        setError(data.error || data.message || 'Invalid credentials');
       }
     } catch (err) {
       console.error('Login error:', err);
