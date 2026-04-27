@@ -10,7 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@saman-prefab/db": "*",
+    "@saman-prefab/db": "file:./saman-prefab-db-1.0.0.tgz",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
